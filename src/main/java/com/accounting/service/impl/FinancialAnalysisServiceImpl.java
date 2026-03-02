@@ -20,7 +20,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,9 +65,14 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         // 趋势分析
         FinancialAnalysisResponse.TrendAnalysis trends = analyzeTrends(startDate, endDate);
 
+        // 计算总资产
+        BigDecimal totalAssets = accountMapper.selectList(null).stream()
+                .map(Account::getBalance)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         // 盈利能力分析
         FinancialAnalysisResponse.ProfitabilityAnalysis profitability = analyzeProfitability(
-                totalIncome, totalExpense, netProfit);
+                totalIncome, totalExpense, netProfit, totalAssets);
 
         // 预测数据
         FinancialAnalysisResponse.ForecastData forecast = generateForecast(startDate, endDate);
@@ -75,11 +82,11 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
                 cashFlow, ratios, trends, profitability);
 
         return FinancialAnalysisResponse.builder()
-                .cashFlowAnalysis(cashFlow)
-                .financialRatios(ratios)
-                .trendAnalysis(trends)
-                .profitabilityAnalysis(profitability)
-                .forecastData(forecast)
+                .cashFlow(cashFlow)
+                .ratios(ratios)
+                .trends(trends)
+                .profitability(profitability)
+                .forecast(forecast)
                 .summary(summary)
                 .build();
     }
@@ -141,11 +148,10 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
                 : BigDecimal.ZERO;
 
         return FinancialAnalysisResponse.CashFlowAnalysis.builder()
-                .operatingCashFlow(operatingCashFlow)
-                .investingCashFlow(investingCashFlow)
-                .financingCashFlow(financingCashFlow)
+                .operatingActivities(operatingCashFlow)
+                .investingActivities(investingCashFlow)
+                .financingActivities(financingCashFlow)
                 .netCashFlow(netCashFlow)
-                .cashFlowMargin(cashFlowMargin)
                 .build();
     }
 
@@ -212,10 +218,9 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         return FinancialAnalysisResponse.FinancialRatios.builder()
                 .currentRatio(currentRatio)
                 .quickRatio(quickRatio)
-                .debtToAssetRatio(debtToAssetRatio)
+                .debtToEquityRatio(debtToAssetRatio)
                 .returnOnAssets(returnOnAssets)
-                .profitMargin(profitMargin)
-                .expenseRatio(expenseRatio)
+                .assetTurnoverRatio(expenseRatio)
                 .build();
     }
 
@@ -259,11 +264,8 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         List<FinancialAnalysisResponse.MonthlyTrend> monthlyTrends = calculateMonthlyTrends(6);
 
         return FinancialAnalysisResponse.TrendAnalysis.builder()
-                .incomeGrowthRate(incomeGrowthRate)
-                .expenseGrowthRate(expenseGrowthRate)
-                .profitGrowthRate(profitGrowthRate)
-                .yearOverYearIncomeGrowth(yearOverYearIncomeGrowth)
-                .yearOverYearExpenseGrowth(yearOverYearExpenseGrowth)
+                .monthOverMonthGrowth(incomeGrowthRate)
+                .yearOverYearGrowth(yearOverYearIncomeGrowth)
                 .monthlyTrends(monthlyTrends)
                 .build();
     }
@@ -272,7 +274,7 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
      * 盈利能力分析
      */
     private FinancialAnalysisResponse.ProfitabilityAnalysis analyzeProfitability(
-            BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netProfit) {
+            BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netProfit, BigDecimal totalAssets) {
         
         // 毛利润（简化：总收入 - 直接成本，这里假设30%的支出是直接成本）
         BigDecimal directCost = totalExpense.multiply(BigDecimal.valueOf(0.3));
@@ -307,14 +309,17 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         BigDecimal breakEvenPoint = BigDecimal.ONE.subtract(variableCostRatio).compareTo(BigDecimal.ZERO) > 0
                 ? fixedCost.divide(BigDecimal.ONE.subtract(variableCostRatio), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
+        
+        // 资产回报率（ROA）= 净利润 / 总资产
+        BigDecimal returnOnAssets = totalAssets.compareTo(BigDecimal.ZERO) > 0
+                ? netProfitValue.divide(totalAssets, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
+                : BigDecimal.ZERO;
 
         return FinancialAnalysisResponse.ProfitabilityAnalysis.builder()
-                .grossProfit(grossProfit)
                 .grossProfitMargin(grossProfitMargin)
-                .operatingProfit(operatingProfit)
-                .operatingProfitMargin(operatingProfitMargin)
-                .netProfit(netProfitValue)
                 .netProfitMargin(netProfitMargin)
+                .operatingProfitMargin(operatingProfitMargin)
+                .returnOnAssets(returnOnAssets)
                 .breakEvenPoint(breakEvenPoint)
                 .build();
     }
@@ -328,10 +333,9 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         
         if (recentMonths.isEmpty()) {
             return FinancialAnalysisResponse.ForecastData.builder()
-                    .nextMonthIncomeEstimate(BigDecimal.ZERO)
-                    .nextMonthExpenseEstimate(BigDecimal.ZERO)
-                    .nextMonthProfitEstimate(BigDecimal.ZERO)
-                    .confidenceLevel(BigDecimal.ZERO)
+                    .nextMonthRevenue(BigDecimal.ZERO)
+                    .nextMonthExpense(BigDecimal.ZERO)
+                    .predictedProfit(BigDecimal.ZERO)
                     .forecastMethod("移动平均法")
                     .build();
         }
@@ -353,10 +357,9 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         BigDecimal confidenceLevel = BigDecimal.valueOf(75.0);
 
         return FinancialAnalysisResponse.ForecastData.builder()
-                .nextMonthIncomeEstimate(avgIncome)
-                .nextMonthExpenseEstimate(avgExpense)
-                .nextMonthProfitEstimate(avgProfit)
-                .confidenceLevel(confidenceLevel)
+                .nextMonthRevenue(avgIncome)
+                .nextMonthExpense(avgExpense)
+                .predictedProfit(avgProfit)
                 .forecastMethod("移动平均法")
                 .build();
     }
@@ -402,12 +405,14 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         
         // 生成建议
         List<String> recommendations = generateRecommendations(healthStatus, ratios, profitability);
+        Map<String, BigDecimal> categoryBreakdown = new HashMap<>();
         
         return FinancialAnalysisResponse.FinancialSummary.builder()
-                .overallHealth(healthStatus)
-                .healthScore(healthScore)
+                .healthStatus(healthStatus)
+                .healthScore(healthScore.intValue())
                 .keyInsights(keyInsights)
                 .recommendations(recommendations)
+                .categoryBreakdown(categoryBreakdown)
                 .build();
     }
     
@@ -445,9 +450,9 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         }
         
         // 资产负债率健康度（20分）
-        if (ratios.getDebtToAssetRatio().compareTo(BigDecimal.valueOf(40)) <= 0) {
+        if (ratios.getDebtToEquityRatio().compareTo(BigDecimal.valueOf(40)) <= 0) {
             score = score.add(BigDecimal.valueOf(20));
-        } else if (ratios.getDebtToAssetRatio().compareTo(BigDecimal.valueOf(60)) <= 0) {
+        } else if (ratios.getDebtToEquityRatio().compareTo(BigDecimal.valueOf(60)) <= 0) {
             score = score.add(BigDecimal.valueOf(10));
         }
         
@@ -498,18 +503,18 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
         }
         
         // 增长趋势洞察
-        if (trends.getIncomeGrowthRate().compareTo(BigDecimal.valueOf(10)) > 0) {
+        if (trends.getMonthOverMonthGrowth().compareTo(BigDecimal.valueOf(10)) > 0) {
             insights.add(String.format("收入环比增长 %.2f%%，业务增长势头良好", 
-                    trends.getIncomeGrowthRate()));
-        } else if (trends.getIncomeGrowthRate().compareTo(BigDecimal.ZERO) < 0) {
+                    trends.getMonthOverMonthGrowth()));
+        } else if (trends.getMonthOverMonthGrowth().compareTo(BigDecimal.ZERO) < 0) {
             insights.add(String.format("收入环比下降 %.2f%%，需要关注业务发展", 
-                    trends.getIncomeGrowthRate().abs()));
+                    trends.getMonthOverMonthGrowth().abs()));
         }
         
         // 资产负债洞察
-        if (ratios.getDebtToAssetRatio().compareTo(BigDecimal.valueOf(70)) > 0) {
+        if (ratios.getDebtToEquityRatio().compareTo(BigDecimal.valueOf(70)) > 0) {
             insights.add(String.format("资产负债率为 %.2f%%，财务杠杆较高", 
-                    ratios.getDebtToAssetRatio()));
+                    ratios.getDebtToEquityRatio()));
         }
         
         return insights;
@@ -550,7 +555,7 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
             recommendations.add("流动比率低于1，短期偿债能力不足，建议增加流动资产或减少短期负债");
         }
         
-        if (ratios.getDebtToAssetRatio().compareTo(BigDecimal.valueOf(60)) > 0) {
+        if (ratios.getDebtToEquityRatio().compareTo(BigDecimal.valueOf(60)) > 0) {
             recommendations.add("资产负债率较高，建议控制负债规模，优化资本结构");
         }
         
@@ -612,12 +617,10 @@ public class FinancialAnalysisServiceImpl implements FinancialAnalysisService {
             BigDecimal growthRate = prevProfit != null ? calculateGrowthRate(prevProfit, monthProfit) : BigDecimal.ZERO;
             
             trends.add(FinancialAnalysisResponse.MonthlyTrend.builder()
-                    .year(month.getYear())
-                    .month(month.getMonthValue())
+                    .month(month.getYear() + "-" + String.format("%02d", month.getMonthValue()))
                     .income(monthIncome)
                     .expense(monthExpense)
-                    .profit(monthProfit)
-                    .growthRate(growthRate)
+                    .netProfit(monthProfit)
                     .build());
             
             prevProfit = monthProfit;

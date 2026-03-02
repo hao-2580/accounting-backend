@@ -1,11 +1,13 @@
 ﻿package com.accounting.dto.response;
 
+import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @Data
+@Builder
 public class FinancialAnalysisResponse {
     private CashFlowAnalysis cashFlow;
     private FinancialRatios ratios;
@@ -15,6 +17,7 @@ public class FinancialAnalysisResponse {
     private FinancialSummary summary;
 
     @Data
+    @Builder
     public static class CashFlowAnalysis {
         private BigDecimal operatingActivities;
         private BigDecimal investingActivities;
@@ -23,6 +26,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class FinancialRatios {
         private BigDecimal currentRatio;
         private BigDecimal quickRatio;
@@ -32,6 +36,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class TrendAnalysis {
         private BigDecimal monthOverMonthGrowth;
         private BigDecimal yearOverYearGrowth;
@@ -39,6 +44,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class MonthlyTrend {
         private String month;
         private BigDecimal income;
@@ -47,6 +53,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class ProfitabilityAnalysis {
         private BigDecimal grossProfitMargin;
         private BigDecimal netProfitMargin;
@@ -56,6 +63,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class ForecastData {
         private BigDecimal nextMonthRevenue;
         private BigDecimal nextMonthExpense;
@@ -64,6 +72,7 @@ public class FinancialAnalysisResponse {
     }
 
     @Data
+    @Builder
     public static class FinancialSummary {
         private Integer healthScore;
         private HealthStatus healthStatus;
