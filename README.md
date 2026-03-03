@@ -57,26 +57,8 @@ src/main/java/com/accounting/
     └── GlobalExceptionHandler.java  # 全局异常处理
 ```
 
----
 
-## 快速启动（开发模式 - H2内存库）
-
-```bash
-# 1. 克隆 / 进入项目目录
-cd accounting-backend
-
-# 2. 编译运行（自动使用 H2，无需配置数据库）
-mvn spring-boot:run
-
-# 3. 访问
-# API:        http://localhost:8080/api/
-# H2 Console: http://localhost:8080/h2-console
-#             JDBC URL: jdbc:h2:mem:accountingdb
-```
-
----
-
-## 切换 MySQL（生产模式）
+##  MySQL（生产模式）
 
 ```bash
 # 1. 执行建表 SQL
